@@ -2,12 +2,137 @@ document.addEventListener("DOMContentLoaded", () => {
   const fishingArea = document.getElementById("fishing-area");
   const rods = [];
   const rodCount = 9;
+  const lastCatchInfo = {};
+
+  let unlockedRods = 1;
+  const rodCosts = {
+    2: 50,
+    3: 150,
+    4: 500,
+    5: 1500,
+    6: 5000,
+    7: 15000,
+    8: 50000,
+    9: 150000,
+  };
+
+  let catcherHeightLevel = 0; // starts at level 0, base height 5px
+  const catcherHeights = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25]; // px values per level
+  const catcherUpgradeCosts = [
+    50, 100, 500, 1000, 5000, 10000, 25000, 50000, 100000, 300000, 500000,
+  ];
 
   let totalCaught = 0;
   let totalEscaped = 0;
   let totalMoney = 0;
   let unlockedAreas = [1];
   let currentArea = 1; // starts at area 1
+
+  const areaCosts = {
+    2: 100, // cost to unlock area 2
+    3: 500,
+    4: 2500,
+    5: 8000,
+    6: 20000,
+    7: 50000,
+    8: 150000,
+    9: 500000,
+    10: 2000000,
+  };
+
+  let catcherSpeedLevel = 1;
+  const maxCatcherSpeedLevel = 10;
+  const catcherSpeedCosts = {
+    2: 50,
+    3: 100,
+    4: 500,
+    5: 1000,
+    6: 5000,
+    7: 25000,
+    8: 100000,
+    9: 500000,
+    10: 1000000,
+  };
+  const catcherSpeedValues = {
+    1: 0.5,
+    2: 0.7,
+    3: 0.9,
+    4: 1.1,
+    5: 1.3,
+    6: 1.5,
+    7: 1.7,
+    8: 1.9,
+    9: 2.1,
+    10: 2.5,
+  };
+
+  let catchSpeedLevel = 1; // starting level
+  const maxCatchSpeedLevel = 10;
+  const catchSpeedCosts = {
+    2: 50,
+    3: 100,
+    4: 500,
+    5: 1000,
+    6: 5000,
+    7: 25000,
+    8: 100000,
+    9: 500000,
+  };
+  const catchSpeedValues = {
+    1: 40, // initial progress per second
+    2: 45,
+    3: 50,
+    4: 55,
+    5: 60,
+    6: 70,
+    7: 80,
+    8: 90,
+    9: 100,
+  };
+
+  let slackLevel = 1; // starting level
+  const maxSlackLevel = 6; // 6 levels
+  const slackCosts = {
+    2: 50,
+    3: 500,
+    4: 5000,
+    5: 25000,
+    6: 50000,
+  };
+  const slackValues = {
+    1: 40, // default
+    2: 36,
+    3: 32,
+    4: 28,
+    5: 24,
+    6: 20,
+  };
+
+  let baitLevel = 1; // starting at 1
+  const maxBaitLevel = 10;
+  const baitCosts = {
+    2: 50,
+    3: 100,
+    4: 500,
+    5: 1000,
+    6: 5000,
+    7: 25000,
+    8: 100000,
+    9: 500000,
+    10: 1000000,
+  };
+  const baitWeightMultiplier = {
+    1: 0, // 0% extra weight chance
+    2: 0.05,
+    3: 0.1,
+    4: 0.15,
+    5: 0.2,
+    6: 0.25,
+    7: 0.3,
+    8: 0.35,
+    9: 0.4,
+    10: 0.5, // max: 50% bias toward higher weights
+  };
 
   const caughtDisplay = document.getElementById("caught");
   const escapedDisplay = document.getElementById("escaped");
@@ -53,16 +178,16 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fishNames = {
-    1: "Guppy (Common)",
-    2: "Catfish (Uncommon)",
-    3: "Perch (Rare)",
-    4: "Salmon (Epic)",
-    5: "Tuna (Legendary)",
-    6: "Mahi-Mahi (Mythic)",
-    7: "Swordfish (Ethereal)",
-    8: "Goliath Grouper (Ancient)",
-    9: "Blue Marlin (Legend of the Seas)",
-    10: "Great White Shark (Mythical Beast)",
+    1: "Guppy",
+    2: "Catfish",
+    3: "Perch",
+    4: "Salmon",
+    5: "Tuna",
+    6: "Mahi-Mahi",
+    7: "Swordfish",
+    8: "Goliath Grouper",
+    9: "Blue Marlin",
+    10: "Great White Shark",
   };
 
   const fishPrices = {
@@ -121,6 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, r.jumpInterval);
   }
 
+  // create rods
   for (let i = 0; i < rodCount; i++) {
     const wrapper = document.createElement("div");
     wrapper.classList.add("rod-wrapper");
@@ -152,10 +278,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // Info panel
     const rarity = getRandomRarityForCurrentArea();
     const settings = raritySettings[rarity];
+
+    // get last catch info for this rod index if any
+    const last = lastCatchInfo[i] || null;
+    const lastText = last
+      ? `${last.name} – ${last.weight} lb - ${last.price} coins`
+      : "—";
     rodInfo.innerHTML = `
-      <div class="timer">Time: 0.0s</div>
-      <div class="rarity">Fish: ${fishNames[rarity]}</div>
-    `;
+  <div class="timer">Time: 0.0s</div>
+  <div class="rarity">Fish: ${fishNames[rarity]}</div>
+  <div class="last-info">Last: ${lastText}</div>
+`;
 
     wrapper.appendChild(rod);
     wrapper.appendChild(rodInfo);
@@ -177,6 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
       flash,
       timerElement: rodInfo.querySelector(".timer"),
       rarityElement: rodInfo.querySelector(".rarity"),
+      lastInfoElement: rodInfo.querySelector(".last-info"),
 
       fishPos: Math.random() * (barHeight - fishHeight),
       catcherPos: 0,
@@ -200,6 +334,11 @@ document.addEventListener("DOMContentLoaded", () => {
     rodState.fish.style.top = rodState.fishPos + "px";
     rods.push(rodState);
 
+    if (i + 1 > unlockedRods) {
+      wrapper.classList.add("rod-locked");
+      wrapper.style.opacity = "0.25";
+    }
+
     scheduleNextJump(rodState);
   }
 
@@ -207,6 +346,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const now = Date.now();
 
     rods.forEach((r) => {
+      if (rods.indexOf(r) + 1 > unlockedRods) return;
+
       const barHeight = r.rod.offsetHeight;
       const fishHeight = r.fish.offsetHeight;
       const catcherHeight = r.catcher.offsetHeight;
@@ -221,7 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // CHASE FISH SLOWLY (upgrade later)
       const targetPos = r.fishPos - (catcherHeight - fishHeight) / 2;
-      const chaseSpeed = 0.5;
+      const chaseSpeed = catcherSpeedValues[catcherSpeedLevel];
 
       if (r.catcherPos < targetPos) {
         r.catcherPos = Math.min(r.catcherPos + chaseSpeed, targetPos);
@@ -240,9 +381,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const inCatcher = fishBottom > catcherTop && fishTop < catcherBottom;
 
       if (inCatcher) {
-        r.progress += 40 * deltaTime;
+        r.progress += catchSpeedValues[catchSpeedLevel] * deltaTime;
       } else {
-        r.progress -= 40 * deltaTime;
+        r.progress -= slackValues[slackLevel] * deltaTime;
       }
 
       r.progress = Math.max(0, Math.min(100, r.progress));
@@ -354,18 +495,257 @@ document.addEventListener("DOMContentLoaded", () => {
     return 1; // fallback
   }
 
+  function purchaseArea(area) {
+    const cost = areaCosts[area];
+
+    if (totalMoney < cost) {
+      return;
+    }
+
+    totalMoney -= cost;
+    unlockedAreas.push(area);
+
+    document.getElementById("money").textContent = `Money: ${totalMoney}`;
+
+    renderUpgrades();
+    renderAreas();
+  }
+
+  function renderUpgrades() {
+    const div = document.getElementById("upgrade-section");
+    div.innerHTML = "";
+
+    // ========== BUY NEXT ROD ==========
+    const nextRod = unlockedRods < 9 ? unlockedRods + 1 : null;
+    const rodBtn = document.createElement("button");
+    rodBtn.classList.add("upgrade-button");
+
+    if (nextRod) {
+      const cost = rodCosts[nextRod];
+      rodBtn.textContent = `Buy Rod ${nextRod} – ${cost} coins`;
+
+      if (totalMoney >= cost) {
+        rodBtn.onclick = () => buyRod(nextRod);
+      } else {
+        rodBtn.classList.add("disabled");
+      }
+    } else {
+      rodBtn.textContent = "Rod Unlock Complete";
+      rodBtn.classList.add("disabled");
+    }
+    div.appendChild(rodBtn);
+
+    // ========== UNLOCK NEXT AREA ==========
+    let nextArea = null;
+    for (let i = 2; i <= 10; i++)
+      if (!unlockedAreas.includes(i)) {
+        nextArea = i;
+        break;
+      }
+
+    const areaBtn = document.createElement("button");
+    areaBtn.classList.add("upgrade-button");
+
+    if (nextArea) {
+      const cost = areaCosts[nextArea];
+      areaBtn.textContent = `Unlock Area ${nextArea} – ${cost} coins`;
+
+      if (totalMoney >= cost) {
+        areaBtn.onclick = () => purchaseArea(nextArea);
+      } else {
+        areaBtn.classList.add("disabled");
+      }
+    } else {
+      areaBtn.textContent = "Area Unlock Complete";
+      areaBtn.classList.add("disabled");
+    }
+    div.appendChild(areaBtn);
+
+    // ---------- CATCHER SPEED UPGRADE ----------
+    const nextCatcherSpeedLevel = catcherSpeedLevel + 1;
+    const catcherSpeedBtn = document.createElement("button");
+    catcherSpeedBtn.classList.add("upgrade-button");
+
+    if (catcherSpeedLevel < maxCatcherSpeedLevel) {
+      const cost = catcherSpeedCosts[nextCatcherSpeedLevel];
+      catcherSpeedBtn.textContent = `Increase Catcher Speed → Level ${nextCatcherSpeedLevel} – ${cost} coins`;
+
+      if (totalMoney >= cost) {
+        catcherSpeedBtn.onclick = () => {
+          totalMoney -= cost;
+          catcherSpeedLevel = nextCatcherSpeedLevel;
+          document.getElementById("money").textContent = `Money: ${totalMoney}`;
+          renderUpgrades();
+        };
+      } else catcherSpeedBtn.classList.add("disabled");
+    } else {
+      catcherSpeedBtn.textContent = "Catcher Speed Upgrade Complete";
+      catcherSpeedBtn.classList.add("disabled");
+    }
+    div.appendChild(catcherSpeedBtn);
+
+    // ========== CATCHER HEIGHT UPGRADE ==========
+    const nextCatcherLevel = catcherHeightLevel + 1;
+    const catcherBtn = document.createElement("button");
+    catcherBtn.classList.add("upgrade-button");
+
+    if (catcherHeightLevel < catcherHeights.length - 1) {
+      const cost = catcherUpgradeCosts[catcherHeightLevel];
+      const canAfford = totalMoney >= cost;
+      catcherBtn.textContent = `Upgrade Catcher – ${cost} coins`;
+
+      if (!canAfford) catcherBtn.classList.add("disabled");
+      else catcherBtn.onclick = () => upgradeCatcher();
+    } else {
+      catcherBtn.textContent = "Catcher Upgrade Complete";
+      catcherBtn.classList.add("disabled");
+    }
+
+    div.appendChild(catcherBtn);
+
+    // ========== CATCH SPEED UPGRADE ==========
+    const nextSpeedLevel = catchSpeedLevel + 1;
+    const speedBtn = document.createElement("button");
+    speedBtn.classList.add("upgrade-button");
+
+    if (catchSpeedLevel < maxCatchSpeedLevel) {
+      const cost = catchSpeedCosts[nextSpeedLevel];
+      const canAfford = totalMoney >= cost;
+      speedBtn.textContent = `Increase Catch Speed → Level ${nextSpeedLevel} – ${cost} coins`;
+
+      if (!canAfford) speedBtn.classList.add("disabled");
+      else
+        speedBtn.onclick = () => {
+          totalMoney -= cost;
+          catchSpeedLevel = nextSpeedLevel;
+          document.getElementById("money").textContent = `Money: ${totalMoney}`;
+          renderUpgrades();
+        };
+    } else {
+      speedBtn.textContent = "Catch Speed Upgrade Complete";
+      speedBtn.classList.add("disabled");
+    }
+
+    div.appendChild(speedBtn);
+
+    // ========== SLACK PROGRESS UPGRADE ==========
+    const nextSlackLevel = slackLevel + 1;
+    const slackBtn = document.createElement("button");
+    slackBtn.classList.add("upgrade-button");
+
+    if (slackLevel < maxSlackLevel) {
+      const cost = slackCosts[nextSlackLevel];
+      const canAfford = totalMoney >= cost;
+      slackBtn.textContent = `Reduce Progress Loss → Level ${nextSlackLevel} – ${cost} coins`;
+
+      if (!canAfford) slackBtn.classList.add("disabled");
+      else
+        slackBtn.onclick = () => {
+          totalMoney -= cost;
+          slackLevel = nextSlackLevel;
+          document.getElementById("money").textContent = `Money: ${totalMoney}`;
+          renderUpgrades();
+        };
+    } else {
+      slackBtn.textContent = "Progress Loss Upgrade Complete";
+      slackBtn.classList.add("disabled");
+    }
+
+    div.appendChild(slackBtn);
+
+    // ---------- BAIT UPGRADE ----------
+    const nextBaitLevel = baitLevel + 1;
+    const baitBtn = document.createElement("button");
+    baitBtn.classList.add("upgrade-button");
+
+    if (baitLevel < maxBaitLevel) {
+      const cost = baitCosts[nextBaitLevel];
+      baitBtn.textContent = `Upgrade Bait (Increase Weight) → Level ${nextBaitLevel} – ${cost} coins`;
+
+      if (totalMoney >= cost) {
+        baitBtn.onclick = () => {
+          totalMoney -= cost;
+          baitLevel = nextBaitLevel;
+          document.getElementById("money").textContent = `Money: ${totalMoney}`;
+          renderUpgrades();
+        };
+      } else baitBtn.classList.add("disabled");
+    } else {
+      baitBtn.textContent = "Bait Upgrade Complete";
+      baitBtn.classList.add("disabled");
+    }
+    div.appendChild(baitBtn);
+
+    //   // ========== TEST COINS BUTTON ==========
+    //   const testBtn = document.createElement("button");
+    //   testBtn.classList.add("upgrade-button");
+    //   testBtn.textContent = "Give 1,000,000 Coins (Test)";
+    //   testBtn.onclick = () => {
+    //     totalMoney += 1000000;
+    //     document.getElementById("money").textContent = `Money: ${totalMoney}`;
+    //     renderUpgrades(); // refresh upgrade buttons
+    //   };
+    //   div.appendChild(testBtn);
+  }
+
+  function updateCatcherHeights() {
+    const height = catcherHeights[catcherHeightLevel];
+    rods.forEach((r, index) => {
+      if (index + 1 <= unlockedRods) {
+        r.catcher.style.height = height + "px";
+      }
+    });
+  }
+
+  function upgradeCatcher() {
+    const cost = catcherUpgradeCosts[catcherHeightLevel];
+    if (totalMoney < cost) return alert("Not enough money!");
+
+    totalMoney -= cost;
+    catcherHeightLevel++; // move to next level
+
+    document.getElementById("money").textContent = `Money: ${totalMoney}`;
+
+    updateCatcherHeights(); // apply new height
+    renderUpgrades(); // refresh buttons
+  }
+
+  function buyRod(rodNumber) {
+    const cost = rodCosts[rodNumber];
+    if (totalMoney < cost) return alert("Not enough money!");
+
+    totalMoney -= cost;
+    unlockedRods = rodNumber;
+
+    document.getElementById("money").textContent = `Money: ${totalMoney}`;
+
+    // Update rod visibility
+    const wrappers = document.querySelectorAll(".rod-wrapper");
+    wrappers.forEach((wrapper, index) => {
+      if (index + 1 <= unlockedRods) {
+        wrapper.classList.remove("rod-locked");
+        wrapper.style.opacity = "1";
+      }
+    });
+
+    renderUpgrades();
+  }
+
   function spawnNewFish(r, caught = false) {
     const barHeight = r.rod.offsetHeight;
     const fishHeight = r.fish.offsetHeight;
 
     // Assign new weight first
     const weightRange = fishWeights[r.rarity];
-    r.fishWeight = (
-      weightRange.min +
-      Math.random() * (weightRange.max - weightRange.min)
-    ).toFixed(2);
+    // store as number with 2 decimals
+    const bias = baitWeightMultiplier[baitLevel] || 0;
+    // Random number between 0 and 1, then apply bias to favor higher weight
+    let rand = Math.random();
+    rand = Math.pow(rand, 1 - bias); // higher bias → heavier fish
+    r.fishWeight = Number(
+      (weightRange.min + rand * (weightRange.max - weightRange.min)).toFixed(2)
+    );
 
-    // Flash effect
     if (caught) {
       totalCaught++;
       caughtDisplay.textContent = `Caught: ${totalCaught}`;
@@ -377,9 +757,24 @@ document.addEventListener("DOMContentLoaded", () => {
         (r.fishWeight - weightRange.min) / (weightRange.max - weightRange.min);
       const earned =
         priceRange.min + weightPercent * (priceRange.max - priceRange.min);
+      const earnedRounded = Math.round(earned);
 
-      totalMoney += Math.round(earned); // round to integer coins
+      totalMoney += earnedRounded;
+      // determine this rod's index
+      const rodIndex = rods.indexOf(r);
+      lastCatchInfo[rodIndex] = {
+        name: fishNames[r.rarity],
+        weight: r.fishWeight.toFixed(2),
+        price: earnedRounded,
+      };
+
+      // update the UI for last info for this rod (if element available)
+      if (r.lastInfoElement) {
+        r.lastInfoElement.textContent = `Last: ${lastCatchInfo[rodIndex].name} – ${lastCatchInfo[rodIndex].weight} lb - ${lastCatchInfo[rodIndex].price} coins`;
+      }
+
       document.getElementById("money").textContent = `Money: ${totalMoney}`;
+      renderUpgrades();
 
       // Update record if this is a new record
       if (fishRecords[r.rarity] === 0 || r.fishWeight > fishRecords[r.rarity]) {
@@ -429,6 +824,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Game loop
   renderFishdex();
+  renderUpgrades();
   renderAreas();
+  updateCatcherHeights();
   setInterval(moveCatchersAndProgress, 50);
 });
